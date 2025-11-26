@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ordersdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready -U postgres
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '7.0.x'
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Restore and Build
+        run: |
+          dotnet restore ./backend/src/Order.Api
+          dotnet build --no-restore ./backend/src/Order.Api -c Release
+      - name: Run Unit Tests
+        run: |
+          dotnet test ./backend/tests/Order.UnitTests -c Release --no-build --verbosity normal
+      - name: Lint Frontend (basic)
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+      - name: Build Docker images
+        run: |
+          docker build -t order-api ./backend -f ./backend/Dockerfile
+          docker build -t order-frontend ./frontend -f ./frontend/Dockerfile
