@@ -1,0 +1,20 @@
+version: '3.8'
+services:
+  api:
+    volumes:
+      - ./backend:/src
+    command: dotnet watch --project /src/Order.Api run --urls http://+:80
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=${DATABASE_URL}
+      - ServiceBus__ConnectionString=${AZURE_SERVICE_BUS_CONNECTION_STRING}
+    ports:
+      - "5000:80"
+  frontend:
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    working_dir: /app
+    command: npm run dev -- --host
+    ports:
+      - "3000:5173"
