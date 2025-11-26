@@ -1,57 +1,92 @@
-import React, { useEffect, useState } from 'react'
-import axios from 'axios'
+import { useEffect, useState } from "react";
+import {
+  createSignalRConnection,
+  startConnection,
+  onOrderStatusUpdated,
+} from "../services/signalRConnection";
 
-export default function Orders(){
-  const [orders, setOrders] = useState([])
-  const [form, setForm] = useState({ cliente: '', produto: '', valor: 0 })
+export default function Orders() {
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const fetch = async () => {
-    const res = await axios.get('/orders')
-    setOrders(res.data)
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+
+  async function fetchOrders() {
+    try {
+      const res = await fetch(`${apiBaseUrl}/orders`);
+      const data = await res.json();
+      setOrders(data);
+    } catch (err) {
+      console.error("Erro ao carregar pedidos:", err);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  useEffect(()=>{ fetch() }, [])
+  useEffect(() => {
+    fetchOrders(); 
 
-  const submit = async (e) =>{
-    e.preventDefault()
-    await axios.post('/orders', { cliente: form.cliente, produto: form.produto, valor: parseFloat(form.valor) })
-    setForm({ cliente: '', produto: '', valor: 0 })
-    fetch()
-  }
+    const connection = createSignalRConnection(apiBaseUrl);
+
+    onOrderStatusUpdated((updatedOrder) => {
+      console.log("Atualização do SignalR:", updatedOrder);
+
+      setOrders((prev) =>
+        prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o))
+      );
+    });
+
+    startConnection();
+
+    return () => {
+      if (connection) connection.stop();
+    };
+  }, []);
+
+  if (loading) return <p>Carregando pedidos...</p>;
 
   return (
-    <div>
-      <form onSubmit={submit} className="mb-6 grid grid-cols-3 gap-2">
-        <input required value={form.cliente} onChange={e=>setForm({...form, cliente:e.target.value})} placeholder="Cliente" className="p-2 border rounded" />
-        <input required value={form.produto} onChange={e=>setForm({...form, produto:e.target.value})} placeholder="Produto" className="p-2 border rounded" />
-        <div className="flex gap-2">
-          <input required type="number" step="0.01" value={form.valor} onChange={e=>setForm({...form, valor:e.target.value})} placeholder="Valor" className="p-2 border rounded flex-1" />
-          <button className="px-4 py-2 bg-blue-600 text-white rounded">Criar</button>
-        </div>
-      </form>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">Pedidos</h1>
 
-      <table className="w-full bg-white rounded shadow">
+      <table className="min-w-full bg-white shadow-lg rounded-lg">
         <thead>
-          <tr className="text-left">
-            <th className="p-2">Cliente</th>
-            <th className="p-2">Produto</th>
-            <th className="p-2">Valor</th>
-            <th className="p-2">Status</th>
-            <th className="p-2">Criado</th>
+          <tr>
+            <th className="border px-4 py-2 text-left">Cliente</th>
+            <th className="border px-4 py-2 text-left">Produto</th>
+            <th className="border px-4 py-2 text-left">Valor</th>
+            <th className="border px-4 py-2 text-left">Status</th>
+            <th className="border px-4 py-2 text-left">Criado em</th>
           </tr>
         </thead>
         <tbody>
-          {orders.map(o => (
-            <tr key={o.id} className="border-t">
-              <td className="p-2">{o.cliente}</td>
-              <td className="p-2">{o.produto}</td>
-              <td className="p-2">{o.valor}</td>
-              <td className="p-2">{o.status}</td>
-              <td className="p-2">{new Date(o.dataCriacao).toLocaleString()}</td>
+          {orders.map((order) => (
+            <tr key={order.id} className="hover:bg-gray-50">
+              <td className="border px-4 py-2">{order.client}</td>
+              <td className="border px-4 py-2">{order.product}</td>
+              <td className="border px-4 py-2">
+                R${order.value.toLocaleString()}
+              </td>
+              <td className="border px-4 py-2">
+                <span
+                  className={`px-2 py-1 rounded text-white ${
+                    order.status === "Pendente"
+                      ? "bg-yellow-500"
+                      : order.status === "Processando"
+                      ? "bg-blue-500"
+                      : "bg-green-600"
+                  }`}
+                >
+                  {order.status}
+                </span>
+              </td>
+              <td className="border px-4 py-2">
+                {new Date(order.data_criacao).toLocaleString()}
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
-  )
+  );
 }
