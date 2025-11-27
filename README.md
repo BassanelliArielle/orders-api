@@ -1,6 +1,7 @@
 # README – Pedido Management (API + Worker + Frontend + Infra Completa)
 
-Sistema completo de gestão de pedidos com:
+
+Este projeto implementa um sistema de gestão de pedidos com:
 
 - Backend em .NET 7 + Entity Framework + PostgreSQL
 
@@ -37,18 +38,18 @@ Copie .env.example para .env e preencha as variáveis.
 docker compose up -d --build
 ```
 
-## 4. Banco de Dados e Migrations
+## 4. Acessar o frontend
 
-Criar migrations:
+http://localhost:3000
 
+## 5. Testar endpoints
+
+Criar pedido:
 ```bash
-cd backend/src/Order.Api
-dotnet ef migrations add InitialCreate
+POST /orders
+{
+  "cliente": "Jhon Due",
+  "produto": "Notebook",
+  "valor": 3500.00
+}
 ```
-
-Aplicar migrations:
-
-```bash
-dotnet ef database update
-```
-
